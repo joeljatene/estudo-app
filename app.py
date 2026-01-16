@@ -46,16 +46,32 @@ except Exception as e:
     st.error(f"Erro ao conectar no GitHub. Verifique os Secrets. Erro: {e}")
     conectado = False
 
-# --- Inicialização de Estado (Carregando do GitHub se possível) ---
-if conectado:
-    if 'materias' not in st.session_state:
-        st.session_state.materias = db.load_csv("materias.csv", ["Materia", "Peso", "Horas_Estudadas"])
-    
-    if 'historico_revisoes' not in st.session_state:
-        st.session_state.historico_revisoes = db.load_csv("revisoes.csv", ["Data", "Materia", "Topico", "Proxima_Revisao"])
+# --- Inicialização de Estado (CORREÇÃO ROBUSTA) ---
+# 1. Garantimos que as variáveis SEMPRE existam, mesmo sem internet/GitHub
+if 'materias' not in st.session_state:
+    st.session_state.materias = pd.DataFrame(columns=["Materia", "Peso", "Horas_Estudadas"])
+
+if 'historico_revisoes' not in st.session_state:
+    st.session_state.historico_revisoes = pd.DataFrame(columns=["Data", "Materia", "Topico", "Proxima_Revisao"])
 
 if 'cronometro_ativo' not in st.session_state:
     st.session_state.cronometro_ativo = False
+
+# 2. Se a conexão funcionou, tentamos atualizar com os dados da nuvem
+if conectado:
+    try:
+        # Tenta carregar do GitHub. Se der erro, mantém as tabelas vazias criadas acima.
+        # Carregamos em variáveis temporárias primeiro para não quebrar o app
+        df_materias_nuvem = db.load_csv("materias.csv", ["Materia", "Peso", "Horas_Estudadas"])
+        if not df_materias_nuvem.empty: 
+            st.session_state.materias = df_materias_nuvem
+
+        df_revisoes_nuvem = db.load_csv("revisoes.csv", ["Data", "Materia", "Topico", "Proxima_Revisao"])
+        if not df_revisoes_nuvem.empty:
+            st.session_state.historico_revisoes = df_revisoes_nuvem
+            
+    except Exception as e:
+        st.warning(f"Conectado, mas houve erro ao ler arquivos: {e}")
 
 # --- FUNÇÕES AUXILIARES ---
 def pomodoro_timer(minutos):
